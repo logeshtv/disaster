@@ -14,13 +14,24 @@ export default function AdminDashboard({ onLogout }) {
     inventory: {}
   });
   const [loading, setLoading] = useState(false);
+  const [donations, setDonations] = useState([]);
 
   const adminKey = localStorage.getItem('adminKey') || 'admin123';
 
   useEffect(() => {
     fetchStats();
     fetchHubs();
+    fetchDonations();
   }, []);
+
+  const fetchDonations = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/api/admin/donations`, { headers: { 'X-Admin-Key': adminKey } });
+      setDonations(response.data.donations || []);
+    } catch (err) {
+      console.error('Failed to fetch donations:', err);
+    }
+  };
 
   const fetchStats = async () => {
     try {
@@ -215,6 +226,68 @@ export default function AdminDashboard({ onLogout }) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Donations Management (Admin) */}
+      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Manage Donations</h2>
+        </div>
+
+        {donations.length === 0 ? (
+          <p className="text-sm text-gray-500">No donations yet</p>
+        ) : (
+          <div className="space-y-4">
+            {donations.slice(0, 20).map((d) => (
+              <div key={d.id} className="border rounded-lg p-4">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="font-bold text-gray-900">{d.donor_name} — ${d.amount?.toFixed?.(2) || '0.00'}</h3>
+                    <p className="text-sm text-gray-500">{new Date(d.created_at).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
+                  <div>
+                    <label className="text-sm text-gray-600">Tracking Status</label>
+                    <select defaultValue={d.tracking_status || d.allocated_status} className="w-full mt-1 px-3 py-2 border rounded" id={`status-${d.id}`}>
+                      <option value="pending">pending</option>
+                      <option value="allocated">allocated</option>
+                      <option value="pickup">pickup</option>
+                      <option value="in_transit">in_transit</option>
+                      <option value="delivered">delivered</option>
+                      <option value="fulfilled">fulfilled</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-600">Add Tracking Note</label>
+                    <input type="text" id={`note-${d.id}`} placeholder="e.g., picked up by hub 3" className="w-full mt-1 px-3 py-2 border rounded" />
+                  </div>
+
+                  <div>
+                    <button
+                      onClick={async () => {
+                        const newStatus = document.getElementById(`status-${d.id}`).value;
+                        const note = document.getElementById(`note-${d.id}`).value;
+                        try {
+                          await axios.put(`${API_BASE_URL}/api/admin/donations/${d.id}`, { tracking_status: newStatus, tracking_note: note }, { headers: { 'X-Admin-Key': adminKey } });
+                          alert('Donation updated');
+                          fetchDonations();
+                        } catch (err) {
+                          alert('Failed to update donation: ' + (err.response?.data?.error || err.message));
+                        }
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    >
+                      Update
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Map of All Hubs */}

@@ -40,6 +40,19 @@ export default function DonorDashboard() {
     return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
+  const getProgressForStatus = (status) => {
+    // Map tracking/allocated status to progress percentage
+    const map = {
+      pending: 0,
+      allocated: 25,
+      pickup: 50,
+      in_transit: 70,
+      delivered: 90,
+      fulfilled: 100
+    };
+    return map[status] ?? 0;
+  };
+
   const totalDonated = donations.reduce((sum, d) => sum + (d.amount || 0), 0);
   const allocatedCount = donations.filter(d => d.allocated_status === 'allocated').length;
   const fulfilledCount = donations.filter(d => d.allocated_status === 'fulfilled').length;
@@ -121,6 +134,23 @@ export default function DonorDashboard() {
                     ${donation.amount.toFixed(2)}
                   </p>
                 )}
+
+                {/* Tracking meter */}
+                <div className="mb-3">
+                  <p className="text-sm text-gray-600 mb-1">Tracking:</p>
+                  {(() => {
+                    const status = donation.tracking_status || donation.allocated_status || 'pending';
+                    const pct = getProgressForStatus(status);
+                    return (
+                      <div>
+                        <div className="w-full bg-gray-100 h-2 rounded overflow-hidden mb-1">
+                          <div className="h-2 bg-green-500" style={{ width: `${pct}%` }} />
+                        </div>
+                        <div className="text-xs text-gray-600">{status?.toUpperCase()} — {pct}%</div>
+                      </div>
+                    );
+                  })()}
+                </div>
                 
                 {donation.items && Object.keys(donation.items).length > 0 && (
                   <div className="mb-2">

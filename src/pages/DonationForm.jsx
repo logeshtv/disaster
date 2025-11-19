@@ -11,12 +11,18 @@ export default function DonationForm() {
     notes: ''
   });
   const [items, setItems] = useState([{ name: '', quantity: '' }]);
+  const [showPayment, setShowPayment] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
   const commonItems = [
     'Water Bottles', 'Food Packets', 'Blankets', 'Medical Supplies',
-    'Tents', 'Clothing', 'Flashlights', 'Batteries', 'First Aid Kits'
+    'Tents', 'Clothing', 'Flashlights', 'Batteries', 'First Aid Kits',
+    'Baby Formula', 'Diapers', 'Hygiene Kits', 'Water Purification Tablets',
+    'Portable Stoves', 'Fuel', 'Generators', 'Solar Chargers', 'Mattresses',
+    'Pillows', 'Cooking Utensils', 'Bottled Medicine', 'Masks', 'Gloves',
+    'Disinfectants', 'School Supplies', 'Pet Food', 'Wheelchairs', 'Crutches',
+    'Sanitary Pads'
   ];
 
   const handleItemChange = (index, field, value) => {
@@ -26,7 +32,7 @@ export default function DonationForm() {
   };
 
   const addItem = () => {
-    setItems([...items, { name: '', quantity: '' }]);
+    setItems([...items, { name: '', customName: '', quantity: '' }]);
   };
 
   const removeItem = (index) => {
@@ -37,25 +43,39 @@ export default function DonationForm() {
     e.preventDefault();
     setLoading(true);
 
-    // Convert items array to object
+    // Convert items array to object (handle 'Other' custom names)
     const itemsObj = {};
     items.forEach(item => {
-      if (item.name && item.quantity) {
-        itemsObj[item.name] = parseInt(item.quantity);
+      const name = item.name === 'Other' ? (item.customName || '').trim() : item.name;
+      if (name && item.quantity) {
+        itemsObj[name] = (itemsObj[name] || 0) + parseInt(item.quantity);
       }
     });
 
     try {
-      await axios.post(`${API_BASE_URL}/api/donations`, {
+      // Include payment info if donor opted to show it
+      const payload = {
         ...formData,
         items: itemsObj,
         amount: parseFloat(formData.amount) || 0
-      });
+      };
+
+      if (showPayment) {
+        payload.payment_info = {
+          type: 'bank',
+          account_name: 'Disaster Relief Fund',
+          account_number: '1234567890123456',
+          ifsc: 'FAKE0001234',
+          qr: 'https://example.com/pay/ABCDEF' // dummy QR link
+        };
+      }
+
+      await axios.post(`${API_BASE_URL}/api/donations`, payload);
 
       setSuccess(true);
       // Reset form
       setFormData({ donor_name: '', donor_email: '', donor_phone: '', amount: '', notes: '' });
-      setItems([{ name: '', quantity: '' }]);
+      setItems([{ name: '', customName: '', quantity: '' }]);
       
       setTimeout(() => setSuccess(false), 5000);
     } catch (err) {
@@ -141,46 +161,54 @@ export default function DonationForm() {
         {/* Items to Donate */}
         <div>
           <h2 className="text-xl font-bold text-gray-900 mb-4">Items to Donate</h2>
-          <div className="space-y-3">
-            {items.map((item, index) => (
-              <div key={index} className="flex gap-3">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    value={item.name}
-                    onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
-                    placeholder="Item name"
-                    list="common-items"
-                  />
-                  <datalist id="common-items">
-                    {commonItems.map((item, i) => (
-                      <option key={i} value={item} />
-                    ))}
-                  </datalist>
+            <div className="space-y-3">
+              {items.map((item, index) => (
+                <div key={index} className="flex gap-3 items-start">
+                  <div className="flex-1">
+                    <select
+                      value={item.name}
+                      onChange={(e) => handleItemChange(index, 'name', e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 bg-white"
+                    >
+                      <option value="">-- Select item --</option>
+                      {commonItems.map((ci) => (
+                        <option key={ci} value={ci}>{ci}</option>
+                      ))}
+                      <option value="Other">Other (type below)</option>
+                    </select>
+
+                    {item.name === 'Other' && (
+                      <input
+                        type="text"
+                        value={item.customName || ''}
+                        onChange={(e) => handleItemChange(index, 'customName', e.target.value)}
+                        className="w-full mt-2 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                        placeholder="Type item name (e.g., 'baby blankets')"
+                      />
+                    )}
+                  </div>
+                  <div className="w-32">
+                    <input
+                      type="number"
+                      value={item.quantity}
+                      onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
+                      placeholder="Qty"
+                      min="1"
+                    />
+                  </div>
+                  {items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(index)}
+                      className="text-red-600 hover:text-red-800 px-3 mt-2"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
-                <div className="w-32">
-                  <input
-                    type="number"
-                    value={item.quantity}
-                    onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500"
-                    placeholder="Quantity"
-                    min="1"
-                  />
-                </div>
-                {items.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeItem(index)}
-                    className="text-red-600 hover:text-red-800 px-3"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           <button
             type="button"
             onClick={addItem}
@@ -214,6 +242,34 @@ export default function DonationForm() {
         </button>
       </form>
 
+      {/* Payment / Bank Details (optional) */}
+      <div className="mt-6">
+        <label className="inline-flex items-center space-x-2">
+          <input type="checkbox" checked={showPayment} onChange={(e) => setShowPayment(e.target.checked)} />
+          <span className="text-sm">Show bank / QR details for donation (optional)</span>
+        </label>
+
+        {showPayment && (
+          <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <p className="text-sm font-medium">Bank / Payment Details (dummy)</p>
+            <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500">Account Name</p>
+                <p className="text-sm font-medium">Disaster Relief Fund</p>
+                <p className="text-xs text-gray-500 mt-2">Account Number</p>
+                <p className="text-sm">1234 5678 9012 3456</p>
+                <p className="text-xs text-gray-500 mt-2">IFSC</p>
+                <p className="text-sm">FAKE0001234</p>
+              </div>
+              <div className="flex items-center justify-center">
+                <div className="w-36 h-36 bg-white border rounded-md flex items-center justify-center">
+                  <div className="text-xs text-gray-500 text-center">QR Placeholder\nScan to pay</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
       {/* Info Box */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
         <p className="text-blue-800 text-sm">
